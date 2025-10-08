@@ -1,103 +1,128 @@
 from collections import deque
-import heapq
+import copy
 
 # Goal state
-GOAL = (1, 2, 3, 4, 5, 6, 7, 8, 0)
+goal_state = [[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 0]]
 
-# Neighbor generation (moves)
-def neighbors(state):
-    idx = state.index(0)
-    x, y = divmod(idx, 3)
-    result = []
-    for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+# Moves: up, down, left, right
+moves = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+
+def get_blank_pos(state):
+    for i in range(3):
+        for j in range(3):
+            if state[i][j] == 0:
+                return i, j
+
+
+def generate_neighbors(state):
+    x, y = get_blank_pos(state)
+    neighbors = []
+    for dx, dy in moves:
         nx, ny = x + dx, y + dy
         if 0 <= nx < 3 and 0 <= ny < 3:
-            nidx = nx*3 + ny
-            lst = list(state)
-            lst[idx], lst[nidx] = lst[nidx], lst[idx]
-            result.append(tuple(lst))
-    return result
+            new_state = copy.deepcopy(state)
+            new_state[x][y], new_state[nx][ny] = new_state[nx][ny], new_state[x][y]
+            neighbors.append(new_state)
+    return neighbors
 
-# BFS Algorithm
-def bfs(start):
-    if start == GOAL:
-        return [start]
-    queue = deque([start])
-    visited = {start}
-    parent = {}
-    while queue:
-        state = queue.popleft()
-        for n in neighbors(state):
-            if n not in visited:
-                visited.add(n)
-                parent[n] = state
-                if n == GOAL:
-                    path = [n]
-                    while path[-1] != start:
-                        path.append(parent[path[-1]])
-                    return list(reversed(path))
-                queue.append(n)
-    return None
 
-# A* Algorithm (with Manhattan heuristic)
-def manhattan(state):
-    dist = 0
-    for i, v in enumerate(state):
-        if v == 0: continue
-        goal_idx = GOAL.index(v)
-        x1, y1 = divmod(i, 3)
-        x2, y2 = divmod(goal_idx, 3)
-        dist += abs(x1 - x2) + abs(y1 - y2)
-    return dist
+def state_to_tuple(state):
+    return tuple(tuple(row) for row in state)
 
-def a_star(start):
-    open_heap = []
-    heapq.heappush(open_heap, (manhattan(start), start))
-    g = {start: 0}
-    parent = {}
+
+def bfs(start_state):
     visited = set()
-    while open_heap:
-        _, state = heapq.heappop(open_heap)
-        if state == GOAL:
-            path = [state]
-            while path[-1] in parent:
-                path.append(parent[path[-1]])
-            return list(reversed(path))
-        visited.add(state)
-        for n in neighbors(state):
-            tentative_g = g[state] + 1
-            if n not in visited or tentative_g < g.get(n, float('inf')):
-                parent[n] = state
-                g[n] = tentative_g
-                heapq.heappush(open_heap, (tentative_g + manhattan(n), n))
+    queue = deque([(start_state, [])])
+    visited.add(state_to_tuple(start_state))
+
+    while queue:
+        state, path = queue.popleft()
+        if state == goal_state:
+            return path + [state]
+
+        for neighbor in generate_neighbors(state):
+            t = state_to_tuple(neighbor)
+            if t not in visited:
+                visited.add(t)
+                queue.append((neighbor, path + [state]))
     return None
 
-# ---------------------------
-# Simple Example (Solvable)
-# ---------------------------
-start_state = (1, 2, 3, 4, 5, 6, 7, 0, 8)
 
-print("Start state:")
-for i in range(0, 9, 3):
-    print(start_state[i:i+3])
+def dfs(start_state, depth_limit=50):
+    visited = set()
 
-print("\nGoal state:")
-for i in range(0, 9, 3):
-    print(GOAL[i:i+3])
+    def dfs_recursive(state, path, depth):
+        if state == goal_state:
+            return path + [state]
+        if depth >= depth_limit:
+            return None
 
-# Run BFS
-bfs_path = bfs(start_state)
-print("\nBFS Path:")
-for step in bfs_path:
-    for i in range(0, 9, 3):
-        print(step[i:i+3])
-    print()
+        visited.add(state_to_tuple(state))
+        for neighbor in generate_neighbors(state):
+            t = state_to_tuple(neighbor)
+            if t not in visited:
+                result = dfs_recursive(neighbor, path + [state], depth + 1)
+                if result:
+                    return result
+        return None
 
-# Run A*
-a_path = a_star(start_state)
-print("A* Path:")
-for step in a_path:
-    for i in range(0, 9, 3):
-        print(step[i:i+3])
-    print()
+    return dfs_recursive(start_state, [], 0)
+
+
+def print_solution(solution):
+    if not solution:
+        print("No solution found.")
+        return
+    print(f"\nSolution found in {len(solution) - 1} moves:")
+    for step in solution:
+        for row in step:
+            print(row)
+        print("----")
+
+
+def input_state():
+    print("Enter the puzzle state row by row (use 0 for blank):")
+    state = []
+    for i in range(3):
+        row = list(map(int, input(f"Row {i+1}: ").split()))
+        if len(row) != 3:
+            raise ValueError("Each row must have exactly 3 numbers.")
+        state.append(row)
+    return state
+
+
+# ------------------------------
+# Main Menu
+# ------------------------------
+if __name__ == "__main__":
+    while True:
+        print("\n--- 8 Puzzle Solver ---")
+        print("1. Solve using BFS")
+        print("2. Solve using DFS")
+        print("3. Exit")
+
+        choice = input("Enter choice: ")
+
+        if choice == "1":
+            start = input_state()
+            print("\nSolving with BFS...")
+            solution = bfs(start)
+            print_solution(solution)
+
+        elif choice == "2":
+            start = input_state()
+            print("\nSolving with DFS...")
+            solution = dfs(start, depth_limit=50)
+            print_solution(solution)
+
+        elif choice == "3":
+            print("Exiting...")
+            break
+
+        else:
+            print("Invalid choice! Please try again.")
+explain the entire code and also give me theorotical
 
