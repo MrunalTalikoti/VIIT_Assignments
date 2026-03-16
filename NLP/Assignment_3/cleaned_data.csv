@@ -1,0 +1,4 @@
+text,label,clean_text,label_encoded
+I love Machine Learning!!! It's amazing :),positive,love machine learning amazing,1
+"Deep Learning is powerful, but needs more data.",neutral,deep learning powerful need data,0
+NLP is fun. Cleaning text is important!,positive,nlp fun cleaning text important,1
